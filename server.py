@@ -273,7 +273,7 @@ class ClientHandler(threading.Thread):
                             self.server.send_to_client(self.phone_number, target_phone, msg.encode())
                         else:
                             encrypted_message = self.encrypt_message(f"Echo: {decrypted_message.decode()}".encode())
-                            self.client_socket.send(encrypted_message)
+                            self.client_socket.send(encrypted_message) #Hello
             except Exception as e:
                 print(f"Error: {e}")
                 break
