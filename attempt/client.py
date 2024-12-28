@@ -123,6 +123,14 @@ class Client:
         )
         client_socket.send(client_public_key_pem)
 
+        # Receive the verification code from the server
+        verification_code = client_socket.recv(6).decode()
+        print(f"Received verification code: {verification_code}")
+
+        # Ask the user to input the verification code
+        user_code = input("Enter the verification code: ")
+        client_socket.send(user_code.encode())
+
         # Create a thread-safe queue to communicate between threads
         message_queue = queue.Queue()
 

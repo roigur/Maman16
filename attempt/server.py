@@ -1,13 +1,42 @@
 import socket
 import threading
+import random
+import string
+import time
+
 from cryptography.hazmat.primitives import serialization
 
 # A "phonebook" to keep track of all clients and their information
 phonebook = {}
 
+# Function to generate a random 6-digit code
+def generate_verification_code(length=6):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
 # This function handles communication with a single client
 def handle_client(client_socket, client_id):
     try:
+        # Generate and send a random code to the client
+        verification_code = generate_verification_code()
+        client_socket.send(verification_code.encode())
+
+        # Start a timer for 5 minutes
+        client_socket.settimeout(300)  # Set timeout for 5 minutes
+
+        try:
+            # Wait for the client to send back the verification code
+            received_code = client_socket.recv(6).decode()
+            if received_code != verification_code:
+                print(f"Client {client_id} failed verification.")
+                client_socket.close()
+                return
+        except socket.timeout:
+            print(f"Client {client_id} did not respond in time.")
+            client_socket.close()
+            return
+
+        print(f"Client {client_id} passed verification.")
+
         # Keep talking to the client until something goes wrong
         while True:
             # Wait for a command from the client (it will be a short word like "KEYR" or "SEND")
