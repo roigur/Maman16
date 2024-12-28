@@ -47,7 +47,7 @@ def handle_client(client_socket, client_id):
 def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(("0.0.0.0", 12345))  # Listen on all network interfaces, port 12345
-    server.listen(5)  # Allow up to 5 clients to connect
+    server.listen(10)  # Allow up to 10 clients to connect
     print("Server listening on port 12345")
 
     while True:
