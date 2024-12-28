@@ -3,9 +3,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 import threading
 import uuid
+import queue
 
 # This function listens for messages from the server
-def receive_messages(client_socket, private_key):
+def receive_messages(client_socket, private_key, message_queue):
     while True:
         try:
             # Receive the sender's ID and the encrypted message size
@@ -32,6 +33,9 @@ def receive_messages(client_socket, private_key):
                 )
             ).decode()
             print(f"Message from {sender_id}: {message}")  # Print the message
+
+            # Put the message in the queue
+            message_queue.put(f"Message from {sender_id}: {message}")
         except Exception as e:
             print(f"Error receiving message: {e}")  # Print errors if something goes wrong
             break
@@ -48,13 +52,36 @@ def request_public_key(client_socket, target_id):
             return None
 
         # Format the public key and return it
-        public_key_data = b'-----BEGIN PUBLI' + public_key_data
+
+        public_key_data = b'-----BEGIN PUBLIC KEY-----' + public_key_data.split(b'\n', 1)[1]
         target_public_key = serialization.load_pem_public_key(public_key_data)
         print(f"Successfully fetched public key for client {target_id}.")
         return target_public_key
     except Exception as e:
         print(f"Error requesting public key: {e}")  # Print any errors
         return None
+
+# Function to send messages (called by main thread)
+def send_message(client_socket, target_id, message, recipient_public_key):
+    try:
+        # Encrypt the message using the target's public key
+        encrypted_message = recipient_public_key.encrypt(
+            message.encode(),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        # Send the encrypted message and its size to the server
+        msg_size = len(encrypted_message).to_bytes(4, 'big')
+        client_socket.send(b"SEND")
+        client_socket.send(target_id.encode().ljust(16))
+        client_socket.send(msg_size)  # Send the size first
+        client_socket.send(encrypted_message)  # Then send the message
+    except Exception as e:
+        print(f"Error sending message: {e}")  # Print any errors
 
 # The main function that runs the client
 def main():
@@ -83,12 +110,22 @@ def main():
     )
     client_socket.send(client_public_key_pem)
 
+    # Create a thread-safe queue to communicate between threads
+    message_queue = queue.Queue()
+
     # Start a thread to listen for incoming messages
-    thread = threading.Thread(target=receive_messages, args=(client_socket, private_key))
+    thread = threading.Thread(target=receive_messages, args=(client_socket, private_key, message_queue))
     thread.start()
 
     while True:
         try:
+            # Check for new messages in the queue (non-blocking)
+            try:
+                while not message_queue.empty():
+                    print(message_queue.get())
+            except queue.Empty:
+                pass
+
             # Ask the user for a target client ID and a message
             target_id = input("Enter target client ID: ")
             message = input("Enter message: ")
@@ -100,21 +137,8 @@ def main():
             if not recipient_public_key:
                 continue
 
-            # Encrypt the message using the target's public key
-            encrypted_message = recipient_public_key.encrypt(
-                message.encode(),
-                padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None
-                )
-            )
-            # Send the encrypted message and its size to the server
-            msg_size = len(encrypted_message).to_bytes(4, 'big')
-            client_socket.send(b"SEND")
-            client_socket.send(target_id.encode().ljust(16))
-            client_socket.send(msg_size)  # Send the size first
-            client_socket.send(encrypted_message)  # Then send the message
+            # Send the message
+            send_message(client_socket, target_id, message, recipient_public_key)
 
         except Exception as e:
             print(f"Error: {e}")  # Print any errors
