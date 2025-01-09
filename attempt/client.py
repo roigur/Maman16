@@ -40,10 +40,13 @@ class Client:
                             label=None
                         )
                     ).decode()
-                    print(f"Message from {sender_id}: {message}")  # Print the message
+                    if message is "ok message received":
+                        print(f"Message to {sender_id} was received")
+                    else:
+                        print(f"Message from {sender_id}: {message}")  # Print the message
 
-                    # Put the message in the queue
-                    message_queue.put(f"Message from {sender_id}: {message}")
+                        # Put the message in the queue
+                        message_queue.put(f"Message from {sender_id}: {message}")
             except Exception as e:
                 print(f"Error receiving message: {e}")  # Print errors if something goes wrong
                 break
@@ -149,6 +152,8 @@ class Client:
 
                 # Ask the user for a target client ID and a message
                 target_id = input("Enter target client ID: ")
+                if target_id.lower() == "exit":
+                    break
                 message = input("Enter message: ")
                 if message.lower() == "exit":
                     break
