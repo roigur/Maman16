@@ -40,13 +40,19 @@ class Client:
                             label=None
                         )
                     ).decode()
-                    if message is "ok message received":
+                    if message == "message received successfully":
                         print(f"Message to {sender_id} was received")
                     else:
                         print(f"Message from {sender_id}: {message}")  # Print the message
 
                         # Put the message in the queue
                         message_queue.put(f"Message from {sender_id}: {message}")
+
+                        thread = threading.Thread(target=self.send_ok,
+                                                  args=(client_socket, sender_id))
+                        thread.start()
+
+
             except Exception as e:
                 print(f"Error receiving message: {e}")  # Print errors if something goes wrong
                 break
@@ -59,19 +65,8 @@ class Client:
             while True:
                 if self.public_key != b'':
                     target_public_key = serialization.load_pem_public_key(self.public_key)
-                    print(f"Successfully fetched public key for client {target_id}.")
+                    #print(f"Successfully fetched public key for client {target_id}.")
                     return target_public_key
-        #     public_key_data = client_socket.recv(4096)  # Receive the public key data
-        #     if not public_key_data:
-        #         print(f"Error: Public key for client {target_id} not found.")
-        #         return None
-        #
-        #     # Format the public key and return it
-        #
-        #     public_key_data = b'-----BEGIN PUBLIC KEY-----' + public_key_data.split(b'\n', 1)[1]
-        #     target_public_key = serialization.load_pem_public_key(public_key_data)
-        #     print(f"Successfully fetched public key for client {target_id}.")
-        #     return target_public_key
         except Exception as e:
             print(f"Error requesting public key: {e}")  # Print any errors
             return None
@@ -98,6 +93,10 @@ class Client:
             client_socket.send(encrypted_message)  # Then send the message
         except Exception as e:
             print(f"Error sending message: {e}")  # Print any errors
+
+    def send_ok(self, client_socket, sender_id):
+        recipient_public_key = self.request_public_key(client_socket, sender_id)
+        self.send_message(client_socket, sender_id, "message received successfully", recipient_public_key)
 
     # The main function that runs the client
     def start(self):
@@ -165,6 +164,7 @@ class Client:
 
                 # Send the message
                 self.send_message(client_socket, target_id, message, recipient_public_key)
+
 
             except Exception as e:
                 print(f"Error: {e}")  # Print any errors

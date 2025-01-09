@@ -45,9 +45,11 @@ def handle_client(client_socket, client_id):
             # If the client wants a public key (KEYR), we find the public key and send it
             if command == "KEYR":
                 target_id = client_socket.recv(16).decode().strip()  # Get the client's ID
+                print(f'Client {client_id} requested the public key of {target_id}.')
                 if target_id in phonebook:  # If the target is in the phonebook
                     public_key_data = phonebook[target_id]["public_key"]
                     client_socket.send(public_key_data)  # Send the public key
+                    print(f'Sent {client_id} the public key of {target_id}.')
                 else:
                     client_socket.send(b"")  # If the target isn't in the phonebook, send nothing
 
