@@ -108,15 +108,16 @@ class Client:
             key_size=2048
         )
         public_key = private_key.public_key()
-
+        while True:
+            client_id = str(input("Enter client ID (it needs to be 4 characters long): "))
+            if len(client_id) == 4:
+                break
         # Connect to the server
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(server_address)
 
         # Generate a unique client ID and send it to the server
-        client_id = str(uuid.uuid4())[:4]
         client_socket.send(client_id.encode().ljust(16))
-        print(f"Your client ID: {client_id}")  # Print the client's ID
 
         # Send the client's public key to the server
         client_public_key_pem = public_key.public_bytes(
