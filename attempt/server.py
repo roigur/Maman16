@@ -69,9 +69,9 @@ def handle_client(client_socket, client_id):
                     target_socket.send(msg_size)  # Send the message size
                     target_socket.send(encrypted_message)  # Send the encrypted message
                 elif target_id in phonebook and not phonebook[target_id]["is_online"]:
-                    messages_for_afk[target_id]['from'] = client_id
-                    messages_for_afk[target_id]['msg_size'] = msg_size
-                    messages_for_afk[target_id]['encrypted_message'] = encrypted_message
+                    messages_for_afk[target_id]['from'].append(client_id)
+                    messages_for_afk[target_id]['msg_size'].append(msg_size)
+                    messages_for_afk[target_id]['encrypted_message'].append(encrypted_message)
                 else:
                     print(f"Target client {target_id} not found.")  # Print error if target not found
     except Exception as e:
@@ -85,10 +85,11 @@ def handle_client(client_socket, client_id):
 def send_all_messages(t_socket, target_id):
     if len(messages_for_afk[target_id]['from']) > 0:
         for i in range(len(messages_for_afk[target_id]['from'])):
+            print(f"Sending delayed messages to {target_id}")
             t_socket = phonebook[target_id]["socket"]
-            t_socket.send(messages_for_afk[target_id]['from'].encode().ljust(16))  # Send the sender's ID
-            t_socket.send(messages_for_afk[target_id]['msg_size'])  # Send the message size
-            t_socket.send(messages_for_afk[target_id]['encrypted_message'])  # Send the encrypted message
+            t_socket.send(messages_for_afk[target_id]['from'][i].encode().ljust(16))  # Send the sender's ID
+            t_socket.send(messages_for_afk[target_id]['msg_size'][i])  # Send the message size
+            t_socket.send(messages_for_afk[target_id]['encrypted_message'][i])  # Send the encrypted message
 
 # The main function that runs the server
 def main():

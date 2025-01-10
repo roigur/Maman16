@@ -4,11 +4,61 @@ from cryptography.hazmat.primitives import serialization, hashes
 import threading
 import uuid
 import queue
+import json
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, id):
         self.public_key = b''
+        self.keys_file = f'client_keys_{id}.json'
+
+    def save_keys(self, client_id, private_key, public_key):
+        """Save keys to a file"""
+        # Serialize keys to PEM format
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        # Store in JSON file
+        keys_data = {
+            'client_id': client_id,
+            'private_key': private_pem.decode('utf-8'),
+            'public_key': public_pem.decode('utf-8')
+        }
+
+        with open(self.keys_file, 'w') as f:
+            json.dump(keys_data, f)
+
+    def load_keys(self):
+        """Load keys from file if they exist"""
+        try:
+            with open(self.keys_file, 'r') as f:
+                keys_data = json.load(f)
+
+            # Load the private key
+            private_key = serialization.load_pem_private_key(
+                keys_data['private_key'].encode('utf-8'),
+                password=None
+            )
+
+            # Load the public key
+            public_key = serialization.load_pem_public_key(
+                keys_data['public_key'].encode('utf-8')
+            )
+
+            return keys_data['client_id'], private_key, public_key
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None, None, None
+
+
+
     # This function listens for messages from the server
     def receive_messages(self, client_socket, private_key, message_queue):
         while True:
@@ -99,24 +149,30 @@ class Client:
         self.send_message(client_socket, sender_id, "message received successfully", recipient_public_key)
 
     # The main function that runs the client
-    def start(self):
-        server_address = ("127.0.0.1", 12345)  # Server's address
+    def start(self,start_id):
+        server_address = ("127.0.0.1", 12345)
 
-        # Generate a private and public key pair
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048
-        )
-        public_key = private_key.public_key()
-        while True:
-            client_id = str(input("Enter client ID (it needs to be 4 characters long): "))
-            if len(client_id) == 4:
-                break
+        # Try to load existing keys
+        client_id, private_key, public_key = self.load_keys()
+        client_id = start_id
+        # If no existing keys, generate new ones and get client ID
+        if not private_key:
+            private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048
+            )
+            public_key = private_key.public_key()
+
+            # Save the new keys
+            self.save_keys(client_id, private_key, public_key)
+        else:
+            print(f"Loaded existing keys for client ID: {client_id}")
+
         # Connect to the server
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(server_address)
 
-        # Generate a unique client ID and send it to the server
+        # Send client ID to server
         client_socket.send(client_id.encode().ljust(16))
 
         # Send the client's public key to the server
@@ -126,18 +182,14 @@ class Client:
         )
         client_socket.send(client_public_key_pem)
 
-        # Receive the verification code from the server
+        # Receive and verify the verification code
         verification_code = client_socket.recv(6).decode()
         print(f"Received verification code: {verification_code}")
-
-        # Ask the user to input the verification code
         user_code = input("Enter the verification code: ")
         client_socket.send(user_code.encode())
 
-        # Create a thread-safe queue to communicate between threads
+        # Create message queue and start receive thread
         message_queue = queue.Queue()
-
-        # Start a thread to listen for incoming messages
         thread = threading.Thread(target=self.receive_messages, args=(client_socket, private_key, message_queue))
         thread.start()
 
@@ -174,5 +226,9 @@ class Client:
         client_socket.close()
 
 if __name__ == "__main__":
-    client = Client()  # Run the client
-    client.start()
+    while True:
+        client_id = str(input("Enter client ID (it needs to be 4 characters long): "))
+        if len(client_id) == 4:
+            break
+    client = Client(client_id)  # Run the client
+    client.start(client_id)
