@@ -14,12 +14,15 @@ messages_for_afk = {}
 def generate_verification_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
+def SendBySecureChannel(target_socket, verification_code):
+    target_socket.send(verification_code.encode())
+
 # This function handles communication with a single client
 def handle_client(client_socket, client_id):
     try:
         # Generate and send a random code to the client
         verification_code = generate_verification_code()
-        client_socket.send(verification_code.encode())
+        SendBySecureChannel(client_socket, verification_code)
 
         # Start a timer for 5 minutes
         client_socket.settimeout(300)  # Set timeout for 5 minutes

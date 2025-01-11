@@ -66,6 +66,7 @@ class Client:
                 message = client_socket.recv(16)
                 if message.split(b'\n', 1)[0] in b'-----BEGIN PUBLIC KEY-----':
                     self.public_key = b'-----BEGIN PUBLIC KEY-----' + client_socket.recv(4080).split(b'\n', 1)[1]
+                    print(f"Got public key \n {self.public_key}")
                 else:
                     # Extract sender ID
                     sender_id = message[:16].decode().strip()
@@ -162,11 +163,11 @@ class Client:
                 key_size=2048
             )
             public_key = private_key.public_key()
-
+            print(f"created private key: {private_key} \n and public key: {public_key}")
             # Save the new keys
             self.save_keys(client_id, private_key, public_key)
         else:
-            print(f"Loaded existing keys for client ID: {client_id}")
+            print(f"Loaded existing keys for client ID: {client_id} : \n {private_key} , \n {public_key}")
 
         # Connect to the server
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
